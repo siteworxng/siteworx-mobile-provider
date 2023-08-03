@@ -162,118 +162,6 @@ Future<void> clearPreferences() async {
   if (isAndroid) await OneSignal.shared.clearOneSignalNotifications();
 }
 
-Future<void> logoutApi() async {
-  return await handleResponse(await buildHttpResponse('logout', method: HttpMethodType.GET));
-}
-
-Future<RegisterResponse> registerUser(Map request) async {
-  return RegisterResponse.fromJson(await (handleResponse(await buildHttpResponse('register', request: request, method: HttpMethodType.POST))));
-}
-
-Future<LoginResponse> loginUser(Map request) async {
-  LoginResponse res = LoginResponse.fromJson(await (handleResponse(await buildHttpResponse('login', request: request, method: HttpMethodType.POST))));
-
-  return res;
-}
-
-Future<void> saveUserData(UserData data) async {
-  if (data.status == 1) {
-    if (data.apiToken != null) await appStore.setToken(data.apiToken.validate());
-
-    await appStore.setUserId(data.id.validate());
-    await appStore.setFirstName(data.firstName.validate());
-    await appStore.setUserType(data.userType.validate());
-    await appStore.setLastName(data.lastName.validate());
-    await appStore.setUserEmail(data.email.validate());
-    await appStore.setUserName(data.username.validate());
-    await appStore.setContactNumber('${data.contactNumber.validate()}');
-    await appStore.setUserProfile(data.profileImage.validate());
-    await appStore.setCountryId(data.countryId.validate());
-    await appStore.setStateId(data.stateId.validate());
-    await appStore.setDesignation(data.designation.validate());
-    await appStore.setProviderId(data.providerId.validate());
-    await appStore.setAddress(data.address.validate().isNotEmpty ? data.address.validate() : '');
-
-    await appStore.setCityId(data.cityId.validate());
-    await appStore.setProviderId(data.providerId.validate());
-    if (data.playerId.validate().isNotEmpty) {
-      appStore.setPlayerId(data.playerId.validate());
-    }
-    if (data.serviceAddressId != null) await appStore.setServiceAddressId(data.serviceAddressId!);
-
-    await appStore.setCreatedAt(data.createdAt.validate());
-
-    if (data.subscription != null) {
-      await setSaveSubscription(
-        isSubscribe: data.isSubscribe,
-        title: data.subscription!.title.validate(),
-        identifier: data.subscription!.identifier.validate(),
-        endAt: data.subscription!.endAt.validate(),
-      );
-    }
-    await userService.getUser(email: data.email.validate().toLowerCase()).then((value) async {
-      await appStore.setUId(value.uid.validate());
-    }).catchError((e) {
-      log(e.toString());
-    });
-
-    await appStore.setLoggedIn(true);
-  }
-}
-
-Future<BaseResponseModel> changeUserPassword(Map request) async {
-  return BaseResponseModel.fromJson(await handleResponse(await buildHttpResponse('change-password', request: request, method: HttpMethodType.POST)));
-}
-
-Future<UserInfoResponse> getUserDetail(int id) async {
-  appStore.setLoading(true);
-  UserInfoResponse res = UserInfoResponse.fromJson(await handleResponse(await buildHttpResponse('user-detail?id=$id', method: HttpMethodType.GET)));
-  appStore.setLoading(false);
-  return res;
-}
-
-Future<HandymanInfoResponse> getProviderDetail(int id) async {
-  return HandymanInfoResponse.fromJson(await handleResponse(await buildHttpResponse('user-detail?id=$id', method: HttpMethodType.GET)));
-}
-
-Future<BaseResponseModel> forgotPassword(Map request) async {
-  return BaseResponseModel.fromJson(await handleResponse(await buildHttpResponse('forgot-password', request: request, method: HttpMethodType.POST)));
-}
-
-Future<CommonResponseModel> updateProfile(Map request) async {
-  return CommonResponseModel.fromJson(await handleResponse(await buildHttpResponse('update-profile', request: request, method: HttpMethodType.POST)));
-}
-//endregion
-
-//region Country API
-Future<List<CountryListResponse>> getCountryList() async {
-  Iterable res = await (handleResponse(await buildHttpResponse('country-list', method: HttpMethodType.POST)));
-  return res.map((e) => CountryListResponse.fromJson(e)).toList();
-}
-
-Future<List<StateListResponse>> getStateList(Map request) async {
-  Iterable res = await (handleResponse(await buildHttpResponse('state-list', request: request, method: HttpMethodType.POST)));
-  return res.map((e) => StateListResponse.fromJson(e)).toList();
-}
-
-Future<List<CityListResponse>> getCityList(Map request) async {
-  Iterable res = await (handleResponse(await buildHttpResponse('city-list', request: request, method: HttpMethodType.POST)));
-  return res.map((e) => CityListResponse.fromJson(e)).toList();
-}
-//endregion
-
-//region Category API
-Future<CategoryResponse> getCategoryList({String perPage = ''}) async {
-  return CategoryResponse.fromJson(await handleResponse(await buildHttpResponse('category-list?per_page=$perPage', method: HttpMethodType.GET)));
-}
-//endregion
-
-//region SubCategory Api
-Future<CategoryResponse> getSubCategoryList({required int catId}) async {
-  String categoryId = catId != -1 ? "category_id=$catId" : "";
-  String perPage = catId != -1 ? '&per_page=all' : '?per_page=all';
-  return CategoryResponse.fromJson(await handleResponse(await buildHttpResponse('subcategory-list?$categoryId$perPage', method: HttpMethodType.GET)));
-}
 //endregion
 
 //region Configuration API
@@ -446,51 +334,6 @@ void _performAdditionalProcessingHandyman(HandymanDashBoardResponse data) {
   appStore.setLoading(false);
 }
 
-Future<BaseResponseModel> updateHandymanStatus(Map request) async {
-  return BaseResponseModel.fromJson(await handleResponse(await buildHttpResponse('user-update-status', request: request, method: HttpMethodType.POST)));
-}
-
-Future<List<UserData>> getHandyman({int? page, int? providerId, String? userTypeHandyman = "handyman", required List<UserData> list, Function(bool)? lastPageCallback}) async {
-  try {
-    var res = UserListResponse.fromJson(
-      await handleResponse(await buildHttpResponse('user-list?user_type=$userTypeHandyman&provider_id=$providerId&per_page=$PER_PAGE_ITEM&page=$page', method: HttpMethodType.GET)),
-    );
-
-    if (page == 1) list.clear();
-
-    list.addAll(res.data.validate());
-
-    lastPageCallback?.call(res.data.validate().length != PER_PAGE_ITEM);
-
-    appStore.setLoading(false);
-  } catch (e) {
-    appStore.setLoading(false);
-
-    throw e;
-  }
-  return list;
-}
-
-Future<List<UserData>> getAllHandyman({int? page, int? serviceAddressId, required List<UserData> userData, Function(bool)? lastPageCallback}) async {
-  try {
-    UserListResponse res = UserListResponse.fromJson(
-      await handleResponse(await buildHttpResponse('user-list?user_type=handyman&provider_id=${appStore.userId}&per_page=$PER_PAGE_ITEM&page=$page', method: HttpMethodType.GET)),
-    );
-
-    if (page == 1) userData.clear();
-
-    userData.addAll(res.data.validate());
-
-    lastPageCallback?.call(res.data.validate().length != PER_PAGE_ITEM);
-    appStore.setLoading(false);
-  } catch (e) {
-    appStore.setLoading(false);
-
-    throw e;
-  }
-
-  return userData;
-}
 
 Future<UserData> deleteHandyman(int id) async {
   return UserData.fromJson(await handleResponse(await buildHttpResponse('handyman-delete/$id', method: HttpMethodType.POST)));
@@ -502,16 +345,6 @@ Future<BaseResponseModel> restoreHandyman(Map request) async {
 
 //endregion
 
-//region Service API
-Future<ServiceResponse> getServiceList(int page, int providerId, {String? searchTxt, bool isSearch = false, int? categoryId, bool isCategoryWise = false}) async {
-  if (isCategoryWise) {
-    return ServiceResponse.fromJson(await handleResponse(await buildHttpResponse('service-list?per_page=$PER_PAGE_ITEM&category_id=$categoryId&page=$page&provider_id=$providerId', method: HttpMethodType.GET)));
-  } else if (isSearch) {
-    return ServiceResponse.fromJson(await handleResponse(await buildHttpResponse('service-list?per_page=$PER_PAGE_ITEM&page=$page&search=$searchTxt&provider_id=$providerId', method: HttpMethodType.GET)));
-  } else {
-    return ServiceResponse.fromJson(await handleResponse(await buildHttpResponse('service-list?per_page=$PER_PAGE_ITEM&page=$page&provider_id=$providerId', method: HttpMethodType.GET)));
-  }
-}
 
 Future<ServiceDetailResponse> getServiceDetail(Map request) async {
   return ServiceDetailResponse.fromJson(await handleResponse(await buildHttpResponse('service-detail', request: request, method: HttpMethodType.POST)));
@@ -598,20 +431,6 @@ Future<List<BookingData>> getBookingList(int page, {var perPage = PER_PAGE_ITEM,
 
     throw e;
   }
-}
-
-Future<SearchListResponse> getServicesList(int page, {var perPage = PER_PAGE_ITEM, int? categoryId = -1, int? subCategoryId = -1, int? providerId, String? search, String? type}) async {
-  String? req;
-  String categoryIds = categoryId != -1 ? 'category_id=$categoryId&' : '';
-  String searchPara = search.validate().isNotEmpty ? 'search=$search&' : '';
-  String subCategorys = subCategoryId != -1 ? 'subcategory_id=$subCategoryId&' : '';
-  String pages = 'page=$page&';
-  String perPages = 'per_page=$PER_PAGE_ITEM';
-  String providerIds = appStore.isLoggedIn ? 'provider_id=${appStore.userId}&' : '';
-  String serviceType = type.validate().isNotEmpty ? 'type=$type&' : "";
-
-  req = '?$categoryIds$providerIds$subCategorys$serviceType$searchPara$pages$perPages';
-  return SearchListResponse.fromJson(await handleResponse(await buildHttpResponse('search-list$req', method: HttpMethodType.GET)));
 }
 
 Future<List<ServiceData>> getSearchList(
@@ -711,13 +530,7 @@ Future<List<AddressResponse>> getAddressesWithPagination({
   return addressList;
 }
 
-Future<BaseResponseModel> addAddresses(Map request) async {
-  return BaseResponseModel.fromJson(await handleResponse(await buildHttpResponse('save-provideraddress', request: request, method: HttpMethodType.POST)));
-}
 
-Future<BaseResponseModel> removeAddress(int? id) async {
-  return BaseResponseModel.fromJson(await handleResponse(await buildHttpResponse('provideraddress-delete/$id', method: HttpMethodType.POST)));
-}
 //endregion
 
 //region Reviews API
